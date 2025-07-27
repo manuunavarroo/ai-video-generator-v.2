@@ -26,17 +26,14 @@ export default function Home() {
 
   const fetchHistory = async () => {
     try {
-      // Step 1: Fetch the list of tasks
       let historyResponse = await fetch('/api/history');
       if (!historyResponse.ok) return;
       
       let data: HistoryItem[] = await historyResponse.json();
       setHistory(data);
 
-      // Step 2: Find any tasks that are still processing
       const processingTasks = data.filter(item => item.status === 'processing');
 
-      // Step 3: If there are processing tasks, check their status
       if (processingTasks.length > 0) {
         for (const task of processingTasks) {
           await fetch('/api/check-status', {
@@ -46,7 +43,6 @@ export default function Home() {
           });
         }
         
-        // Step 4: After checking, fetch the history AGAIN to instantly show any updates.
         historyResponse = await fetch('/api/history');
         if (historyResponse.ok) {
           data = await historyResponse.json();
@@ -82,7 +78,7 @@ export default function Home() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'An error occurred');
       setMessage(`✅ Request sent! Your image will appear in the history below.`);
-      setTimeout(fetchHistory, 1000); // Fetch history shortly after submitting
+      setTimeout(fetchHistory, 1000);
     } catch (error: unknown) {
       let errorMessage = 'An error occurred';
       if (error instanceof Error) { errorMessage = error.message; }
@@ -96,7 +92,8 @@ export default function Home() {
     <main className="bg-slate-50 min-h-screen p-4 sm:p-8">
       <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-lg shadow-md h-fit">
-          <h1 className="text-2xl font-bold mb-4">AI Image Generator</h1>
+          {/* --- CHANGE 1 --- */}
+          <h1 className="text-2xl font-bold mb-4 text-black">AI Image Generator</h1>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-1">Prompt</label>
@@ -104,7 +101,8 @@ export default function Home() {
             </div>
             <div>
               <label htmlFor="ratio" className="block text-sm font-medium text-gray-700 mb-1">Aspect Ratio</label>
-              <select id="ratio" value={ratio} onChange={(e) => setRatio(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md">
+              {/* --- CHANGE 2 --- */}
+              <select id="ratio" value={ratio} onChange={(e) => setRatio(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-black">
                 <option value="1:1">Square (1:1)</option>
                 <option value="16:9">Landscape (16:9)</option>
                 <option value="9:16">Portrait (9:16)</option>
@@ -125,11 +123,13 @@ export default function Home() {
                  <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input type="radio" name="seedMode" value="random" checked={seedMode === 'random'} onChange={() => setSeedMode('random')} className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"/>
-                      <span className="ml-2 text-sm">Randomized</span>
+                      {/* --- CHANGE 2 --- */}
+                      <span className="ml-2 text-sm text-gray-700">Randomized</span>
                     </label>
                      <label className="flex items-center">
                       <input type="radio" name="seedMode" value="fixed" checked={seedMode === 'fixed'} onChange={() => setSeedMode('fixed')} className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"/>
-                      <span className="ml-2 text-sm">Fixed</span>
+                      {/* --- CHANGE 2 --- */}
+                      <span className="ml-2 text-sm text-gray-700">Fixed</span>
                     </label>
                  </div>
                  {seedMode === 'fixed' && (
@@ -146,7 +146,8 @@ export default function Home() {
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-bold mb-4">History</h2>
+          {/* --- CHANGE 1 --- */}
+          <h2 className="text-xl font-bold mb-4 text-black">History</h2>
           <div className="space-y-4 max-h-[80vh] overflow-y-auto">
             {history.length > 0 ? history.map((item) => (
               <div key={item.taskId} className="border p-3 rounded-md bg-gray-50">
