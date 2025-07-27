@@ -26,8 +26,39 @@ export default function Home() {
   const [seedValue, setSeedValue] = useState<string>('');
 
 
-  const fetchHistory = async () => { /* ... (no changes here) ... */ };
-  useEffect(() => { /* ... (no changes here) ... */ }, []);
+  const fetchHistory = async () => {
+    try {
+      const historyResponse = await fetch('/api/history');
+      const data: HistoryItem[] = await historyResponse.json();
+      setHistory(data);
+
+      // Find all tasks that are still processing
+      const processingTasks = data.filter(item => item.status === 'processing');
+
+      // For each processing task, ask our server to check its status
+      for (const task of processingTasks) {
+        await fetch('/api/check-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId: task.taskId }),
+        });
+      }
+
+    } catch (error) {
+      console.error('Failed to fetch history:', error);
+    }
+  };
+
+  useEffect(() => {
+    // This interval will now automatically check for results
+    const interval = setInterval(() => {
+        fetchHistory();
+    }, 5000); // Check every 5 seconds
+    
+    fetchHistory(); // Initial fetch
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

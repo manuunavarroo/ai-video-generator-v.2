@@ -50,14 +50,12 @@ export async function POST(request: Request) {
       webappId: WEBAPP_ID,
       apiKey: API_KEY,
       nodeInfoList: nodeInfoList,
-      webhookUrl: `https://${process.env.VERCEL_URL}/api/webhook`,
     };
 
     const response = await fetch(RUN_URL, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        // The Host header is required by the documentation
         'Host': 'www.runninghub.ai'
       },
       body: JSON.stringify(payload),
