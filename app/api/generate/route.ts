@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       webappId: WEBAPP_ID,
       apiKey: API_KEY,
       nodeInfoList: nodeInfoList,
+      webhookUrl: `https://${process.env.VERCEL_URL}/api/webhook`,
     };
 
     const response = await fetch(RUN_URL, {

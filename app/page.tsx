@@ -31,29 +31,16 @@ export default function Home() {
       const historyResponse = await fetch('/api/history');
       const data: HistoryItem[] = await historyResponse.json();
       setHistory(data);
-
-      // Find all tasks that are still processing
-      const processingTasks = data.filter(item => item.status === 'processing');
-
-      // For each processing task, ask our server to check its status
-      for (const task of processingTasks) {
-        await fetch('/api/check-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskId: task.taskId }),
-        });
-      }
-
     } catch (error) {
       console.error('Failed to fetch history:', error);
     }
   };
 
   useEffect(() => {
-    // This interval will now automatically check for results
+    // The interval simply refreshes the history list periodically
     const interval = setInterval(() => {
         fetchHistory();
-    }, 5000); // Check every 5 seconds
+    }, 5000); // Refresh every 5 seconds
     
     fetchHistory(); // Initial fetch
     
