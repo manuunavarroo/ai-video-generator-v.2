@@ -1,4 +1,5 @@
 // File: app/page.tsx
+
 'use client';
 import { useState, useEffect, FormEvent } from 'react';
 import Image from 'next/image';
@@ -19,31 +20,34 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
-
-  // New state for advanced options
   const [useLora, setUseLora] = useState<boolean>(false);
   const [seedMode, setSeedMode] = useState<'random' | 'fixed'>('random');
   const [seedValue, setSeedValue] = useState<string>('');
 
-
   const fetchHistory = async () => {
     try {
       const historyResponse = await fetch('/api/history');
+      if (!historyResponse.ok) return; // Don't proceed if history fails
+      
       const data: HistoryItem[] = await historyResponse.json();
       setHistory(data);
+
+      const processingTasks = data.filter(item => item.status === 'processing');
+      for (const task of processingTasks) {
+        await fetch('/api/check-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId: task.taskId }),
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch history:', error);
     }
   };
 
   useEffect(() => {
-    // The interval simply refreshes the history list periodically
-    const interval = setInterval(() => {
-        fetchHistory();
-    }, 5000); // Refresh every 5 seconds
-    
-    fetchHistory(); // Initial fetch
-    
+    const interval = setInterval(fetchHistory, 5000);
+    fetchHistory();
     return () => clearInterval(interval);
   }, []);
 
@@ -54,19 +58,27 @@ export default function Home() {
       return;
     }
     setLoading(true);
-    setMessage('Sending request...');
-
+    setMessage('Generating image...');
     const finalSeed = seedMode === 'random' ? 'random' : seedValue;
-
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, ratio, useLora, seed: finalSeed }),
       });
-      // ... (rest of handleSubmit is the same)
-    } catch (error: unknown) { /* ... */ } finally { /* ... */ }
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'An error occurred');
+      setMessage(`✅ Request sent! Your image will appear in the history below.`);
+      setTimeout(fetchHistory, 1000); // Fetch history shortly after submitting
+    } catch (error: unknown) {
+      let errorMessage = 'An error occurred';
+      if (error instanceof Error) { errorMessage = error.message; }
+      setMessage(`❌ Error: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   return (
     <main className="bg-slate-50 min-h-screen p-4 sm:p-8">
