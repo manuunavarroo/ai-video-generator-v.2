@@ -7,6 +7,12 @@ const redis = Redis.fromEnv();
 const API_KEY = process.env.RUNNINGHUB_API_KEY!;
 const CHECK_URL = 'https://www.runninghub.ai/task/openapi/outputs';
 
+// A type for our task object
+type Task = {
+  taskId: string;
+  // ... add other properties if needed for type safety
+};
+
 export async function POST(request: Request) {
   try {
     const { taskId } = await request.json();
@@ -23,9 +29,11 @@ export async function POST(request: Request) {
     if (result.code === 0 && result.data && result.data.length > 0) {
       const imageUrl = result.data[0].fileUrl;
       if (imageUrl) {
-        const taskDataString = await redis.get<string>(taskId);
-        if (taskDataString) {
-          const taskData = JSON.parse(taskDataString);
+        // Get the data as an object directly, NOT a string
+        const taskData = await redis.get<Task>(taskId);
+
+        // Check if taskData exists and remove the JSON.parse line
+        if (taskData) {
           const updatedTaskData = { ...taskData, status: 'complete', imageUrl: imageUrl, completedAt: new Date() };
           await redis.set(taskId, JSON.stringify(updatedTaskData));
         }
