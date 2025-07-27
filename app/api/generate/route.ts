@@ -42,11 +42,15 @@ export async function POST(request: Request) {
     if (result.code !== 0) throw new Error(`API Error: ${result.msg}`);
 
     const taskId = result.data.taskId;
-    const taskData = { taskId, prompt, ratio, status: 'processing', createdAt: new Date() };
+    const taskData = { taskId, prompt, ratio, width, height, status: 'processing', createdAt: new Date() };
     await redis.set(taskId, JSON.stringify(taskData));
 
     return NextResponse.json({ success: true, taskId });
-  } catch (error: any) {
-    return NextResponse.json({ message: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    let errorMessage = 'An unknown error occurred';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }

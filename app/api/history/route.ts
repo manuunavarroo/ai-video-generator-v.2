@@ -5,6 +5,10 @@ import { Redis } from '@upstash/redis';
 const redis = Redis.fromEnv();
 export const revalidate = 0;
 
+type Task = {
+  createdAt: string;
+};
+
 export async function GET() {
   try {
     const keys = await redis.keys('*-*');
@@ -12,10 +16,17 @@ export async function GET() {
 
     const itemsAsStrings = await redis.mget<string[]>(...keys);
     const items = itemsAsStrings.map(item => JSON.parse(item));
-    const sortedItems = items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    const sortedItems = items.sort((a: Task, b: Task) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     return NextResponse.json(sortedItems);
-  } catch (error: any) {
-    return NextResponse.json({ message: error.message }, { status: 500 });
+  } catch (error: unknown) { 
+     let errorMessage = 'An unknown error occurred';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }

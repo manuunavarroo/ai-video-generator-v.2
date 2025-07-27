@@ -1,6 +1,7 @@
 // File: app/page.tsx
 'use client';
 import { useState, useEffect, FormEvent } from 'react';
+import Image from 'next/image';
 
 interface HistoryItem {
   taskId: string;
@@ -8,6 +9,8 @@ interface HistoryItem {
   status: 'processing' | 'complete';
   imageUrl?: string;
   createdAt: string;
+  width?: number; 
+  height?: number;
 }
 
 export default function Home() {
@@ -47,8 +50,12 @@ export default function Home() {
       if (!response.ok) throw new Error(result.message || 'An error occurred');
       setMessage(`✅ Request sent! The image will appear in your history shortly.`);
       fetchHistory();
-    } catch (error: any) {
-      setMessage(`❌ Error: ${error.message}`);
+    } catch (error: unknown) { 
+      let errorMessage = 'An error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      setMessage(`❌ Error: ${errorMessage}`);
     } finally {
       setLoading(false);
       setPrompt('');
@@ -88,7 +95,13 @@ export default function Home() {
                 <p className="text-xs text-gray-500">{new Date(item.createdAt).toLocaleString()}</p>
                 <div className="mt-2">
                   {item.status === 'complete' && item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.prompt} className="rounded-md w-full" />
+                    <Image 
+                    src={item.imageUrl} 
+                    alt={item.prompt} 
+                    width={item.width || 1080} 
+                    height={item.height || 1080}
+                    className="rounded-md w-full h-auto" 
+                  />
                   ) : (
                     <div className="text-center p-4 bg-gray-200 rounded-md"><p className="text-sm text-gray-600">⌛ Processing...</p></div>
                   )}

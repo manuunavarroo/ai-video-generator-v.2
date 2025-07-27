@@ -21,7 +21,12 @@ export async function POST(request: Request) {
     await redis.set(taskId, JSON.stringify(updatedTaskData));
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ message: 'Error processing webhook' }, { status: 500 });
+  } catch (error: unknown) { 
+    let errorMessage = 'Error processing webhook';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    console.error('Webhook Error:', errorMessage); 
+    return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
