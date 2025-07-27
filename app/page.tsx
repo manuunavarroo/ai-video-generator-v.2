@@ -26,19 +26,32 @@ export default function Home() {
 
   const fetchHistory = async () => {
     try {
-      const historyResponse = await fetch('/api/history');
-      if (!historyResponse.ok) return; // Don't proceed if history fails
+      // Step 1: Fetch the list of tasks
+      let historyResponse = await fetch('/api/history');
+      if (!historyResponse.ok) return;
       
-      const data: HistoryItem[] = await historyResponse.json();
+      let data: HistoryItem[] = await historyResponse.json();
       setHistory(data);
 
+      // Step 2: Find any tasks that are still processing
       const processingTasks = data.filter(item => item.status === 'processing');
-      for (const task of processingTasks) {
-        await fetch('/api/check-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskId: task.taskId }),
-        });
+
+      // Step 3: If there are processing tasks, check their status
+      if (processingTasks.length > 0) {
+        for (const task of processingTasks) {
+          await fetch('/api/check-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskId: task.taskId }),
+          });
+        }
+        
+        // Step 4: After checking, fetch the history AGAIN to instantly show any updates.
+        historyResponse = await fetch('/api/history');
+        if (historyResponse.ok) {
+          data = await historyResponse.json();
+          setHistory(data);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch history:', error);
@@ -58,7 +71,7 @@ export default function Home() {
       return;
     }
     setLoading(true);
-    setMessage('Generating image...');
+    setMessage('Sending request...');
     const finalSeed = seedMode === 'random' ? 'random' : seedValue;
     try {
       const response = await fetch('/api/generate', {
@@ -79,14 +92,12 @@ export default function Home() {
     }
   };
 
-
   return (
     <main className="bg-slate-50 min-h-screen p-4 sm:p-8">
       <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-lg shadow-md h-fit">
           <h1 className="text-2xl font-bold mb-4">AI Image Generator</h1>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Prompt and Aspect Ratio (no changes) */}
             <div>
               <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-1">Prompt</label>
               <textarea id="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" rows={3} required />
@@ -100,10 +111,8 @@ export default function Home() {
               </select>
             </div>
 
-            {/* --- NEW OPTIONS START --- */}
             <div className="border-t pt-4">
               <h3 className="text-lg font-medium text-gray-800 mb-2">Advanced Options</h3>
-              {/* Lora Switch */}
               <div className="flex items-center justify-between">
                 <label htmlFor="lora" className="text-sm font-medium text-gray-700">Add Skin Lora?</label>
                 <button type="button" onClick={() => setUseLora(!useLora)} className={`${useLora ? 'bg-blue-600' : 'bg-gray-200'} relative inline-flex h-6 w-11 items-center rounded-full`}>
@@ -111,7 +120,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Seed Options */}
               <div className="mt-4">
                  <label className="block text-sm font-medium text-gray-700 mb-2">Seed</label>
                  <div className="flex items-center space-x-4">
@@ -129,7 +137,6 @@ export default function Home() {
                  )}
               </div>
             </div>
-            {/* --- NEW OPTIONS END --- */}
             
             <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
               {loading ? 'Generating...' : 'Generate Image'}
@@ -137,9 +144,30 @@ export default function Home() {
           </form>
           {message && <div className={`mt-4 p-3 rounded-md text-sm ${message.startsWith('❌') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{message}</div>}
         </div>
-        {/* History Container (no changes) */}
+        
         <div className="bg-white p-6 rounded-lg shadow-md">
-           {/* ... */}
+          <h2 className="text-xl font-bold mb-4">History</h2>
+          <div className="space-y-4 max-h-[80vh] overflow-y-auto">
+            {history.length > 0 ? history.map((item) => (
+              <div key={item.taskId} className="border p-3 rounded-md bg-gray-50">
+                <p className="font-semibold text-gray-800 break-words">{item.prompt}</p>
+                <p className="text-xs text-gray-500">{new Date(item.createdAt).toLocaleString()}</p>
+                <div className="mt-2">
+                  {item.status === 'complete' && item.imageUrl ? (
+                    <Image 
+                      src={item.imageUrl} 
+                      alt={item.prompt} 
+                      width={item.width || 1080} 
+                      height={item.height || 1080} 
+                      className="rounded-md w-full h-auto" 
+                    />
+                  ) : (
+                    <div className="text-center p-4 bg-gray-200 rounded-md"><p className="text-sm text-gray-600">⌛ Processing...</p></div>
+                  )}
+                </div>
+              </div>
+            )) : <p className="text-gray-500">Your generated images will appear here.</p>}
+          </div>
         </div>
       </div>
     </main>

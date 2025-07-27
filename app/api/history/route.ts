@@ -6,12 +6,17 @@ import { Redis } from '@upstash/redis';
 const redis = Redis.fromEnv();
 export const revalidate = 0;
 
-// This type should be complete to match the data
+// This is the fix. The type must include all possible fields.
 type HistoryTask = {
   taskId: string;
   prompt: string;
+  ratio: string;
+  width: number;
+  height: number;
   status: 'processing' | 'complete';
   createdAt: string;
+  imageUrl?: string;
+  completedAt?: string;
 };
 
 export async function GET() {
@@ -31,7 +36,6 @@ export async function GET() {
 
     return NextResponse.json(sortedItems);
   } catch (error: unknown) { 
-    console.error("--- ERROR IN HISTORY API ---", error);
     let errorMessage = 'An unknown error occurred';
     if (error instanceof Error) {
       errorMessage = error.message;
