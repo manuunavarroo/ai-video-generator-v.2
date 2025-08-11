@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     
     return NextResponse.json({ success: true, status });
 
-  } catch (error: unknown) {
+  } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     console.error("Error in check-status:", errorMessage);
     return NextResponse.json({ message: errorMessage }, { status: 500 });
