@@ -4,18 +4,15 @@ import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
 const redis = Redis.fromEnv();
-export const revalidate = 0;
+export const revalidate = 0; // Ensure fresh data on every request
 
-// This is the fix. The type must include all possible fields.
+// Updated type to reflect video generation task data
 type HistoryTask = {
   taskId: string;
   prompt: string;
-  ratio: string;
-  width: number;
-  height: number;
-  status: 'processing' | 'complete';
+  status: 'processing' | 'complete' | 'failed';
   createdAt: string;
-  imageUrl?: string;
+  videoUrl?: string; // Changed from imageUrl
   completedAt?: string;
 };
 
@@ -26,20 +23,21 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
+    // Fetch all tasks from Redis
     const items = await redis.mget<HistoryTask[]>(...keys);
 
+    // Filter out any null items that might occur
     const validItems = items.filter((item): item is HistoryTask => item !== null);
 
+    // Sort items by creation date, newest first
     const sortedItems = validItems.sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     return NextResponse.json(sortedItems);
+
   } catch (error: unknown) { 
-    let errorMessage = 'An unknown error occurred';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
