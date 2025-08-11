@@ -33,6 +33,7 @@ export async function POST(request: Request) {
     console.log("--- GENERATE API: STEP 1 - Uploading image to Vercel Blob... ---");
     const blob = await put(imageFile.name, imageFile, {
       access: 'public',
+      addRandomSuffix: true,
     });
     console.log("--- GENERATE API: STEP 1 - Vercel Blob upload successful ---");
     console.log(`--- GENERATE API: STEP 1 - Blob URL: ${blob.url} ---`);
