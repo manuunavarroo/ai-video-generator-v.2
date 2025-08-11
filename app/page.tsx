@@ -151,26 +151,24 @@ export default function Home() {
               <div key={item.taskId} className="border p-3 rounded-md bg-gray-50">
                 <p className="font-semibold text-gray-800 break-words">{item.prompt}</p>
                 <p className="text-xs text-gray-500">{new Date(item.createdAt).toLocaleString()}</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {item.imageUrl && (
-                    <div>
-                      <p className="text-xs font-bold text-gray-600 mb-1">Input:</p>
-                      <Image src={item.imageUrl} alt="Input image" width={150} height={150} className="rounded-md" />
-                    </div>
-                  )}
+                
+                {/* FIX: The grid and the input image display are removed. */}
+                {/* The output is now rendered directly inside the history item. */}
+                <div className="mt-2">
                   {item.status === 'complete' && item.videoUrl ? (
                     <div>
-                       <p className="text-xs font-bold text-gray-600 mb-1">Output:</p>
+                      <p className="text-xs font-bold text-gray-600 mb-1">Output:</p>
                       <video controls muted autoPlay loop className="rounded-md w-full h-auto bg-black">
                         <source src={item.videoUrl} type="video/mp4" />
                       </video>
                     </div>
                   ) : item.status === 'failed' ? (
-                     <div className="text-center p-4 bg-red-100 rounded-md col-span-2"><p className="text-sm text-red-700">❌ Generation Failed</p></div>
+                      <div className="text-center p-4 bg-red-100 rounded-md"><p className="text-sm text-red-700">❌ Generation Failed</p></div>
                   ) : (
-                    <div className="text-center p-4 bg-gray-200 rounded-md col-span-2"><p className="text-sm text-gray-600">⌛ Processing...</p></div>
+                    <div className="text-center p-4 bg-gray-200 rounded-md"><p className="text-sm text-gray-600">⌛ Processing...</p></div>
                   )}
                 </div>
+        
               </div>
             )) : <p className="text-gray-500">Your generated videos will appear here.</p>}
           </div>
