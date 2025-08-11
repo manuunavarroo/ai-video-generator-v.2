@@ -13,6 +13,7 @@ const API_KEY = process.env.SEEDANCE_API_KEY!;
 type TaskData = {
   taskId: string;
   prompt: string;
+  imageUrl: string; // Ensure imageUrl is part of the type
   status: 'processing' | 'complete' | 'failed';
   createdAt: string;
   videoUrl?: string;
@@ -36,8 +37,6 @@ export async function POST(request: Request) {
     const result = await getResponse.json();
 
     if (getResponse.status !== 200) {
-      // If the API call fails, we don't know the status, so we just exit.
-      // The next poll attempt will try again.
       console.error(`Failed to get task status for ${taskId}: ${result.message}`);
       return NextResponse.json({ success: false, message: 'Failed to fetch status' }, { status: 500 });
     }
@@ -47,19 +46,37 @@ export async function POST(request: Request) {
     // If the task has succeeded or failed, update its status in Redis
     if (status === 'succeeded' || status === 'failed') {
       const taskDataString = await redis.get<string>(taskId);
-      if (!taskDataString) return NextResponse.json({ success: true, status: 'Task not found in DB' });
+      if (!taskDataString) {
+        // If task is not in our DB, we can't update it. This can happen if Redis clears.
+        return NextResponse.json({ success: true, status: 'Task not found in DB' });
+      }
       
       const taskData: TaskData = JSON.parse(taskDataString);
 
-      // Avoid updating already completed tasks
+      // Avoid re-processing tasks that are already finished
       if(taskData.status !== 'processing') {
         return NextResponse.json({ success: true, status: taskData.status });
       }
 
       if (status === 'succeeded') {
         taskData.status = 'complete';
-        taskData.videoUrl = result.content.video_url; // Get the video URL
+        
+        // ** THE FIX IS HERE **
+        // Find the video content in the response array
+        const videoContent = Array.isArray(result.content) 
+            ? result.content.find((c: any) => c.type === 'video') 
+            : null;
+
+        if (videoContent && videoContent.video_url) {
+            taskData.videoUrl = videoContent.video_url; // Assign the correct URL
+        } else {
+            // If the video URL is somehow missing on success, mark as failed to avoid a broken state
+            console.error("Task succeeded but no video_url found in response for taskId:", taskId);
+            taskData.status = 'failed';
+        }
+        
         taskData.completedAt = new Date().toISOString();
+
       } else { // status === 'failed'
         taskData.status = 'failed';
         taskData.completedAt = new Date().toISOString();
@@ -72,6 +89,7 @@ export async function POST(request: Request) {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    console.error("Error in check-status:", errorMessage);
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
