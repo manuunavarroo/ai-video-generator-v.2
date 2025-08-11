@@ -4,15 +4,16 @@ import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
 const redis = Redis.fromEnv();
-export const revalidate = 0; // Ensure fresh data on every request
+export const revalidate = 0;
 
-// Updated type to reflect video generation task data
+// Updated type to include the input imageUrl
 type HistoryTask = {
   taskId: string;
   prompt: string;
   status: 'processing' | 'complete' | 'failed';
   createdAt: string;
-  videoUrl?: string; // Changed from imageUrl
+  imageUrl?: string; // The input image for display in history
+  videoUrl?: string; // The output video
   completedAt?: string;
 };
 
@@ -23,13 +24,9 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    // Fetch all tasks from Redis
     const items = await redis.mget<HistoryTask[]>(...keys);
-
-    // Filter out any null items that might occur
     const validItems = items.filter((item): item is HistoryTask => item !== null);
 
-    // Sort items by creation date, newest first
     const sortedItems = validItems.sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );

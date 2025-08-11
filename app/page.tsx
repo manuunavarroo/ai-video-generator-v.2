@@ -1,36 +1,36 @@
 // File: app/page.tsx
 
 'use client';
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import Image from 'next/image';
 
-// Updated interface for history items
+// The interface remains the same as the last version
 interface HistoryItem {
   taskId: string;
   prompt: string;
   status: 'processing' | 'complete' | 'failed';
-  videoUrl?: string; // Changed from imageUrl to videoUrl
+  videoUrl?: string;
+  imageUrl?: string; // Also good to have the input image for history
   createdAt: string;
 }
 
 export default function Home() {
   const [prompt, setPrompt] = useState<string>('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
-  // Fetches history and checks status of processing tasks
+  // The fetchHistory function remains unchanged from the previous version
   const fetchHistory = async () => {
     try {
       let historyResponse = await fetch('/api/history');
       if (!historyResponse.ok) return;
-
       let data: HistoryItem[] = await historyResponse.json();
       setHistory(data);
-
       const processingTasks = data.filter(item => item.status === 'processing');
-
       if (processingTasks.length > 0) {
-        // Check status for each processing task
         for (const task of processingTasks) {
           await fetch('/api/check-status', {
             method: 'POST',
@@ -38,8 +38,6 @@ export default function Home() {
             body: JSON.stringify({ taskId: task.taskId }),
           });
         }
-        
-        // Refetch history after status checks
         historyResponse = await fetch('/api/history');
         if (historyResponse.ok) {
           data = await historyResponse.json();
@@ -51,35 +49,52 @@ export default function Home() {
     }
   };
 
-  // Set up an interval to poll for updates
   useEffect(() => {
-    fetchHistory(); // Fetch once on initial load
-    const interval = setInterval(fetchHistory, 5000); // Poll every 5 seconds
+    fetchHistory();
+    const interval = setInterval(fetchHistory, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  // Handle form submission
+  // NEW: Handle image selection and create a preview
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  // UPDATED: Handle form submission with FormData
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!imageFile) {
+      setMessage('❌ Please upload an image.');
+      return;
+    }
     setLoading(true);
-    setMessage('Sending request...');
+    setMessage('Uploading image and sending request...');
 
-    // Automatically append required parameters to the user's prompt
     const finalPrompt = `${prompt} --resolution 1080p --duration 10`;
+
+    // Use FormData to send both the file and the prompt
+    const formData = new FormData();
+    formData.append('prompt', finalPrompt);
+    formData.append('image', imageFile);
 
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // Send the modified prompt to the backend
-        body: JSON.stringify({ prompt: finalPrompt }),
+        body: formData, // No 'Content-Type' header, browser sets it for FormData
       });
 
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'An error occurred');
       
       setMessage(`✅ Request sent! Your video will appear in the history below.`);
-      setTimeout(fetchHistory, 1000); // Trigger a quick refetch
+      setPrompt('');
+      setImageFile(null);
+      setImagePreview(null);
+      setTimeout(fetchHistory, 1000);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       setMessage(`❌ Error: ${errorMessage}`);
@@ -89,7 +104,7 @@ export default function Home() {
   };
 
   const processingCount = history.filter(item => item.status === 'processing').length;
-  const isQueueFull = processingCount >= 5; // You can adjust the queue limit
+  const isQueueFull = processingCount >= 5;
 
   return (
     <main className="bg-slate-50 min-h-screen p-4 sm:p-8">
@@ -99,10 +114,21 @@ export default function Home() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-1">Prompt</label>
-              <textarea id="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-black" rows={4} required />
+              <textarea id="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-black" rows={3} required />
             </div>
-            
-            {/* Aspect Ratio and Advanced options have been removed */}
+
+            {/* NEW: Image Upload Section */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Upload Image</label>
+              <input type="file" onChange={handleImageChange} accept="image/png, image/jpeg, image/webp" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required/>
+            </div>
+
+            {imagePreview && (
+              <div className="mt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Image Preview:</p>
+                <Image src={imagePreview} alt="Image preview" width={200} height={200} className="rounded-lg object-cover w-full h-auto" />
+              </div>
+            )}
             
             <button type="submit" disabled={loading || isQueueFull} className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
               {loading ? 'Generating...' : 'Generate Video'}
@@ -125,17 +151,24 @@ export default function Home() {
               <div key={item.taskId} className="border p-3 rounded-md bg-gray-50">
                 <p className="font-semibold text-gray-800 break-words">{item.prompt}</p>
                 <p className="text-xs text-gray-500">{new Date(item.createdAt).toLocaleString()}</p>
-                <div className="mt-2">
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {item.imageUrl && (
+                    <div>
+                      <p className="text-xs font-bold text-gray-600 mb-1">Input:</p>
+                      <Image src={item.imageUrl} alt="Input image" width={150} height={150} className="rounded-md" />
+                    </div>
+                  )}
                   {item.status === 'complete' && item.videoUrl ? (
-                    // Display video player for completed tasks
-                    <video controls muted autoPlay loop className="rounded-md w-full h-auto bg-black">
-                      <source src={item.videoUrl} type="video/mp4" />
-                      Your browser does not support the video tag.
-                    </video>
+                    <div>
+                       <p className="text-xs font-bold text-gray-600 mb-1">Output:</p>
+                      <video controls muted autoPlay loop className="rounded-md w-full h-auto bg-black">
+                        <source src={item.videoUrl} type="video/mp4" />
+                      </video>
+                    </div>
                   ) : item.status === 'failed' ? (
-                     <div className="text-center p-4 bg-red-100 rounded-md"><p className="text-sm text-red-700">❌ Generation Failed</p></div>
+                     <div className="text-center p-4 bg-red-100 rounded-md col-span-2"><p className="text-sm text-red-700">❌ Generation Failed</p></div>
                   ) : (
-                    <div className="text-center p-4 bg-gray-200 rounded-md"><p className="text-sm text-gray-600">⌛ Processing...</p></div>
+                    <div className="text-center p-4 bg-gray-200 rounded-md col-span-2"><p className="text-sm text-gray-600">⌛ Processing...</p></div>
                   )}
                 </div>
               </div>
