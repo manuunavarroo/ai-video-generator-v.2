@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
-import { Readable } from 'stream';
+import { put } from '@vercel/blob'; // Import the 'put' function from Vercel Blob
 
 const redis = Redis.fromEnv();
 
@@ -10,20 +10,6 @@ const redis = Redis.fromEnv();
 const API_BASE_URL = process.env.SEEDANCE_API_BASE_URL!;
 const API_KEY = process.env.SEEDANCE_API_KEY!;
 const MODEL_ID = process.env.SEEDANCE_MODEL_ID!;
-// imgbb API key for temporary image hosting
-const IMGBB_API_KEY = process.env.IMGBB_API_KEY!;
-
-// Helper to convert a Web Stream to a Buffer
-async function streamToBuffer(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks);
-}
 
 export async function POST(request: Request) {
   try {
@@ -35,25 +21,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Prompt and image are required' }, { status: 400 });
     }
 
-    // --- Step 1: Upload the image to a public hosting service (imgbb) ---
-    const imageBuffer = await streamToBuffer(imageFile.stream());
-    const imageBase64 = imageBuffer.toString('base64');
-    
-    const imgbbFormData = new FormData();
-    imgbbFormData.append('image', imageBase64);
-
-    const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-      method: 'POST',
-      body: imgbbFormData,
+    // --- Step 1: Upload the image to Vercel Blob ---
+    // The 'put' function handles the upload and returns an object with the public URL.
+    const blob = await put(imageFile.name, imageFile, {
+      access: 'public', // This makes the file publicly accessible
     });
 
-    const imgbbResult = await imgbbResponse.json();
-    if (!imgbbResult.success) {
-      throw new Error(`Image upload failed: ${imgbbResult.error.message}`);
-    }
-    const publicImageUrl = imgbbResult.data.url;
+    const publicImageUrl = blob.url; // Get the public URL from the response
 
-    // --- Step 2: Create the video generation task with the public image URL ---
+    // --- Step 2: Create the video generation task with the Vercel Blob URL ---
     const createPayload = {
       model: MODEL_ID,
       content: [
@@ -79,7 +55,7 @@ export async function POST(request: Request) {
 
     const taskId = result.id;
     
-    // --- Step 3: Save task data to Redis, now including the input image URL ---
+    // --- Step 3: Save task data to Redis ---
     const taskData = { 
       taskId, 
       prompt, 
